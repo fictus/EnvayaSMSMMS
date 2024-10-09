@@ -1,6 +1,9 @@
 
 package org.envaya.sms.ui;
 
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.net.wifi.WifiManager;
 import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.BroadcastReceiver;
@@ -38,6 +41,7 @@ import org.envaya.sms.R;
 public class PendingMessages extends ListActivity {
 
     private App app;    
+    private ConnectivityManager mConnMgr;  
     
     private List<QueuedMessage> displayedMessages;
     
@@ -54,6 +58,7 @@ public class PendingMessages extends ListActivity {
         super.onCreate(icicle);
         
         app = (App) getApplication();
+        mConnMgr = (ConnectivityManager) app.getSystemService(Context.CONNECTIVITY_SERVICE);
                 
         setContentView(R.layout.pending_messages);
         
@@ -105,6 +110,9 @@ public class PendingMessages extends ListActivity {
     {
         final ArrayList<QueuedMessage> messages = new ArrayList<QueuedMessage>();
         
+        
+        waitForWifiToBeActive();
+
         synchronized(app.outbox)
         {
             for (OutgoingMessage message : app.outbox.getMessages())
@@ -244,6 +252,43 @@ public class PendingMessages extends ListActivity {
         for (QueuedMessage message : displayedMessages)
         {
             retryMessage(message);
+        }
+    }
+
+    private void waitForWifiToBeActive()
+    {
+        NetworkInfo info = mConnMgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        Boolean finished = false;
+
+        if (!info.isConnected())
+        {
+            app.switchingNetworkBecauseOfMMS = true;
+            WifiManager wifi = (WifiManager) app.getSystemService(Context.WIFI_SERVICE);
+            wifi.setWifiEnabled(true);    
+        }
+        else
+        {
+            finished = true;
+        }
+
+        while(!finished)
+        {
+            NetworkInfo activeNetwork = mConnMgr.getActiveNetworkInfo();
+
+            finished = activeNetwork != null && activeNetwork.getState() == NetworkInfo.State.CONNECTED && activeNetwork.getType() == ConnectivityManager.TYPE_WIFI;
+            
+            if (!finished)
+            {
+                //app.log("(waiting for WIFI Connectivity)");
+                try 
+                {
+                    Thread.sleep(800);
+                }
+                catch (InterruptedException ex)
+                {
+                    //Thread.currentThread().interrupt();
+                }
+            }
         }
     }
     

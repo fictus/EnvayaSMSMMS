@@ -20,7 +20,7 @@ import org.envaya.sms.receiver.DequeueOutgoingMessageReceiver;
 import org.envaya.sms.task.HttpTask;
 
 public class Outbox {
-    private Map<Uri, OutgoingMessage> outgoingMessages = new HashMap<Uri, OutgoingMessage>();    
+    private Map<Uri, OutgoingMessage> outgoingMessages = new HashMap<Uri, OutgoingMessage>();  
     
     private App app;   
 
@@ -220,10 +220,13 @@ public class Outbox {
         
         app.getDatabaseHelper().deletePendingMessage(message);
         
-        notifyMessageStatus(message, App.STATUS_CANCELLED, 
-                "deleted by user");
-        app.log(message.getDescription() + " deleted");
-        notifyChanged();
+        if (!app.switchingNetworkBecauseOfMMS)
+        {
+            notifyMessageStatus(message, App.STATUS_CANCELLED, 
+                    "deleted by user");
+            app.log(message.getDescription() + " deleted");
+            notifyChanged();
+        }
     }    
     
     public synchronized void maybeDequeueMessage()
@@ -308,5 +311,5 @@ public class Outbox {
     public synchronized Collection<OutgoingMessage> getMessages()
     {
         return outgoingMessages.values();
-    }
+    }    
 }

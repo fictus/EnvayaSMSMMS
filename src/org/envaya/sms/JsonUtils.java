@@ -12,6 +12,9 @@ import org.apache.http.HttpResponse;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.URL;
 
 public class JsonUtils {
 
@@ -49,7 +52,28 @@ public class JsonUtils {
 
         if (App.EVENT_SEND.equals(event))
         {
+            List<OutgoingMessage> smsMessages = new ArrayList<OutgoingMessage>();            
+            List<OutgoingMessage> mmsMessages = new ArrayList<OutgoingMessage>();
             for (OutgoingMessage message : JsonUtils.getMessagesList(json, app, defaultTo))
+            {
+                if (message.getMessageAttachmentMessageType().equals("MMS"))
+                {
+                    mmsMessages.add(message);
+                }
+                else
+                {
+                    smsMessages.add(message);
+                }                
+            }
+
+            cacheMMSAttachments(mmsMessages, app);
+
+            for (OutgoingMessage message : smsMessages)
+            {
+                app.outbox.sendMessage(message);
+            }
+
+            for (OutgoingMessage message : mmsMessages)
             {
                 app.outbox.sendMessage(message);
             }
@@ -185,7 +209,10 @@ public class JsonUtils {
                 message.setMessageAttachmentMessageType(optString(messageObject, "messagetype", "")); 
                 message.setMessageAttachmentFileType(optString(messageObject, "messageattachmentfiletype", "")); 
                 message.setMessageAttachmentFileExtension(optString(messageObject, "messageattachmentfileextension", "")); 
-                message.setMessageAttachmentFileBase64(optString(messageObject, "messageattachmentfilebase64", ""));           
+                message.setMessageAttachmentUrlOrBase64(optString(messageObject, "messageattachmenturlorbase64", ""));
+                message.setAPNMMSC(optString(messageObject, "apnmmsc", ""));
+                message.setAPNProxy(optString(messageObject, "apnproxy", ""));
+                message.setAPNPort(optString(messageObject, "apnport", ""));
                 message.setPriority(messageObject.optInt("priority", 0));            
                 message.setMessageBody(body);
 
@@ -194,5 +221,99 @@ public class JsonUtils {
         }
         
         return messages;
+    }
+
+    public static void cacheMMSAttachments(List<OutgoingMessage> mmsMessages, App app)
+    {
+        //app.log("(caching files)");
+        app.cachedInstanceImages.clear();
+
+        Integer cacheIndex = 0;
+        for (OutgoingMessage message : mmsMessages)
+        {
+            String base64string = message.getMessageAttachmentUrlOrBase64();
+            String cacheName = message.getMessageAttachmentFileType().equals("url") ? 
+                message.getMessageAttachmentUrlOrBase64() : "attachmentFile" + cacheIndex;
+
+            //app.log("base64string: " + base64string);
+            //app.log("cacheName: " + cacheName);
+
+            if (message.getMessageAttachmentFileType().equals("url"))
+            {
+                //app.log("Is URL: true");
+                URL url = null;
+
+                try
+                {
+                    url = new URL(base64string);
+                }
+                catch (Exception ex)
+                {
+
+                }
+
+                downloadImageFromUrl(url, base64string, app);
+            }
+            else
+            {
+                //app.log("Is URL: false");
+                getBase64StringtoBytes(base64string, cacheName, app);
+                message.setMessageAttachmentUrlOrBase64(cacheName);
+            }
+
+            cacheIndex++;
+        }
+    }
+
+    public static void downloadImageFromUrl(URL toDownload, String cacheName, App app) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        byte[] rawImageData = null;
+    
+        if (!app.cachedInstanceImages.containsKey(cacheName))
+        {
+            try
+            {
+                byte[] chunk = new byte[4096];
+                int bytesRead;
+                InputStream stream = toDownload.openStream();
+        
+                while ((bytesRead = stream.read(chunk)) > 0) {
+                    outputStream.write(chunk, 0, bytesRead);
+                }
+        
+                rawImageData = outputStream.toByteArray();
+            } catch (IOException e)
+            {
+                e.printStackTrace();                
+            }
+            finally
+            {
+                try
+                {
+                    outputStream.close();
+                }
+                catch (IOException ioex)
+                {
+                    //Very bad things just happened... handle it
+                }
+            }
+
+            app.cachedInstanceImages.put(cacheName, rawImageData);
+        }
+    }
+
+    public static void getBase64StringtoBytes(String base64, String cacheName, App app)
+    {
+        byte[] fileBytes = null;
+
+        if (!app.cachedInstanceImages.containsKey(cacheName))
+        {
+            if (!base64.trim().equals(""))
+            {
+                fileBytes = org.envaya.sms.Base64Coder.decode(base64);
+            }
+
+            app.cachedInstanceImages.put(cacheName, fileBytes);
+        }
     }
 }

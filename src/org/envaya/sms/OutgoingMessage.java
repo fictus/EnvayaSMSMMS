@@ -19,7 +19,10 @@ public abstract class OutgoingMessage extends QueuedMessage {
     private String messagetype;
     private String messageattachmentfiletype;
     private String messageattachmentfileextension;
-    private String messageattachmentfilebase64;
+    private String messageattachmenturlorbase64;
+    private String apnmmsc;
+    private String apnproxy;
+    private String apnport;
     private int priority;
     private int localId;
     private static int nextLocalId = 1;            
@@ -167,14 +170,44 @@ public abstract class OutgoingMessage extends QueuedMessage {
         this.messageattachmentfileextension = fileExtension;
     } 
     
-    public String getMessageAttachmentFileBase64()
+    public String getMessageAttachmentUrlOrBase64()
     {
-        return messageattachmentfilebase64;
+        return messageattachmenturlorbase64;
     } 
     
-    public void setMessageAttachmentFileBase64(String fileBase64)
+    public void setMessageAttachmentUrlOrBase64(String fileBase64)
     {
-        this.messageattachmentfilebase64 = fileBase64;
+        this.messageattachmenturlorbase64 = fileBase64;
+    } 
+    
+    public String getAPNMMSC()
+    {
+        return apnmmsc;
+    } 
+    
+    public void setAPNMMSC(String mmsc)
+    {
+        this.apnmmsc = mmsc;
+    } 
+    
+    public String getAPNProxy()
+    {
+        return apnproxy;
+    } 
+    
+    public void setAPNProxy(String proxy)
+    {
+        this.apnproxy = proxy;
+    } 
+    
+    public String getAPNPort()
+    {
+        return apnport;
+    } 
+    
+    public void setAPNPort(String port)
+    {
+        this.apnport = port;
     } 
 
     public void setPriority(int priority)

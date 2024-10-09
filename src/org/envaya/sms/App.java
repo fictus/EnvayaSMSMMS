@@ -25,6 +25,7 @@ import android.util.Log;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -168,6 +169,8 @@ public final class App extends Application {
     private AmqpConsumer amqpConsumer;
     
     private boolean connectivityError = false;
+    public Boolean switchingNetworkBecauseOfMMS;
+    public Map<String, byte[]> cachedInstanceImages = new HashMap<String, byte[]>();
     
     @Override
     public void onCreate()
@@ -195,6 +198,8 @@ public final class App extends Application {
         dbHelper = new DatabaseHelper(this);
         
         amqpConsumer = new AmqpConsumer(this);
+
+        switchingNetworkBecauseOfMMS = false;
         
         try
         {
@@ -407,8 +412,9 @@ public final class App extends Application {
         {
             String serverUrl = getServerUrl();
             if (serverUrl.length() > 0) {
+                cachedInstanceImages.clear();;
                 log("Checking for messages");
-                pollActive = true;                
+                pollActive = true;
                 new PollerTask(this).execute();
             } else {
                 log("Can't check messages; server URL not set");
@@ -944,6 +950,11 @@ public final class App extends Application {
      */
     public synchronized void asyncCheckConnectivity()
     {          
+        if (switchingNetworkBecauseOfMMS)
+        {
+            return;
+        }
+
         ConnectivityManager cm = 
             (ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);
 
@@ -1003,6 +1014,11 @@ public final class App extends Application {
     
     public synchronized void onConnectivityChanged()
     {
+        if (switchingNetworkBecauseOfMMS)
+        {
+            return;
+        }
+
         ConnectivityManager cm = 
             (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
         
